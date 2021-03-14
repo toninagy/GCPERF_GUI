@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="gcperf-driver">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/gcperf-driver.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
