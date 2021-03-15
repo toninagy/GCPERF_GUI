@@ -35,7 +35,7 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
         final Group root = new Group();
         final GridPane gridPane = new GridPane();
-        gridPane.setVgap(10);
+        gridPane.setVgap(20);
         gridPane.setHgap(10);
         gridPane.setPadding(new Insets(10, 10, 10, 10));
 
@@ -44,6 +44,7 @@ public class Main extends Application {
         final Label numberOfRunsLabel = new Label("Number Of Runs: ");
         final Label initHeapIncrementLabel = new Label("Xms Increment (in Mbytes): ");
         final Label maxHeapIncrementLabel = new Label("Xmx Increment (in Mbytes): ");
+        final Label gcsLabel = new Label("Garbage Collectors: ");
 
         final CheckBox serial = new CheckBox(GCType.SERIAL.name());
         final CheckBox parallel = new CheckBox(GCType.PARALLEL.name());
@@ -52,7 +53,7 @@ public class Main extends Application {
         final CheckBox shenandoah = new CheckBox(GCType.SHENANDOAH.name());
 
         final TextField appName = new TextField();
-        appName.setMaxWidth(300);
+        appName.setMaxWidth(250);
         final TextField numberOfRuns = new TextField();
         numberOfRuns.setMaxWidth(60);
         final TextField initHeapIncrement = new TextField();
@@ -66,7 +67,7 @@ public class Main extends Application {
         final TextFormatter<Number> maxHeapIncrementFormatter = new TextFormatter<>(converter, 256, converter.getFilter());
 
         final Button runGcAnalysisButton = new Button("Run GC Analysis");
-        final Button addButton = new Button("Set Parameters");
+        final Button addButton = new Button("Set/Refresh Parameters");
         addButton.setOnAction(e -> {
             if ((appName.getText() == null || appName.getText().isEmpty())
             || (numberOfRuns.getText() == null || numberOfRuns.getText().isEmpty())
@@ -104,7 +105,7 @@ public class Main extends Application {
                         gcTypes);
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Parameters set");
-                alert.setContentText("All parameters set, GC analysis is ready to be started!");
+                alert.setContentText("All parameters set, GC analysis is ready to be started");
                 alert.showAndWait();
             }
         });
@@ -120,17 +121,18 @@ public class Main extends Application {
         gridPane.add(numberOfRunsLabel, 0, 2);
         gridPane.add(initHeapIncrementLabel, 0, 3);
         gridPane.add(maxHeapIncrementLabel, 0, 4);
+        gridPane.add(gcsLabel, 0, 5);
         gridPane.add(appName, 1, 1);
         gridPane.add(numberOfRuns, 1, 2);
         gridPane.add(initHeapIncrement, 1, 3);
         gridPane.add(maxHeapIncrement, 1, 4);
         gridPane.add(serial, 1, 5);
-        gridPane.add(parallel, 2, 5);
-        gridPane.add(g1, 3, 5);
-        gridPane.add(zgc, 4, 5);
-        gridPane.add(shenandoah, 5, 5);
-        gridPane.add(addButton, 1, 6);
-        gridPane.add(runGcAnalysisButton, 1, 7);
+        gridPane.add(parallel, 1, 6);
+        gridPane.add(g1, 1, 7);
+        gridPane.add(zgc, 2, 5);
+        gridPane.add(shenandoah, 2, 6);
+        gridPane.add(addButton, 1, 8);
+        gridPane.add(runGcAnalysisButton, 1, 9);
         root.getChildren().add(gridPane);
         primaryStage.setTitle("Java GC Performance Analyzer");
         primaryStage.setScene(new Scene(root, 800, 600));
@@ -140,13 +142,14 @@ public class Main extends Application {
             if(launcherParams == null) {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Start failed");
-                alert.setContentText("Parameters were not set correctly.");
+                alert.setContentText("Please set the parameters first");
                 alert.showAndWait();
             }
             else {
                 try {
-                    GCPerfDriver.launch(launcherParams.getAppName(), launcherParams.getNumOfRuns(), launcherParams.getInitHeapIncrementSize(),
-                            launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes());
+                    GCPerfDriver.launch(launcherParams.getAppName(), launcherParams.getNumOfRuns(),
+                            launcherParams.getInitHeapIncrementSize(), launcherParams.getMaxHeapIncrementSize(),
+                            launcherParams.getGcTypes());
                 } catch (IOException | PythonExecutionException ioException) {
                     ioException.printStackTrace();
                 }
