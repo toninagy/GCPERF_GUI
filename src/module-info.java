@@ -3,5 +3,5 @@ module GCPERF.GUI {
     requires javafx.controls;
     requires gcperf.driver;
     requires matplotlib4j;
-    opens sample;
+    opens hu.antalnagy.gcperf.gui;
 }

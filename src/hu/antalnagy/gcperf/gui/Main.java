@@ -1,4 +1,4 @@
-package sample;
+package hu.antalnagy.gcperf.gui;
 
 import com.github.sh0nk.matplotlib4j.PythonExecutionException;
 import hu.antalnagy.gcperf.GCType;
@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Main extends Application {
     private static final LauncherParams launcherParams = new LauncherParams();
     private static final AtomicBoolean correctParams = new AtomicBoolean(false);
-    private static File javaFile;
+    private static File appContainer;
 
     public static void main(String[] args) {
         launch(args);
@@ -42,8 +42,8 @@ public class Main extends Application {
         gridPane.setPadding(new Insets(10, 10, 10, 10));
 
         final Label title = new Label("GC Analyzer");
-        final Label browseLabel = new Label("Browse Java Class File: ");
-        final Label numberOfRunsLabel = new Label("Number Of Runs: ");
+        final Label browseLabel = new Label("Class File or Jar File: ");
+        final Label numberOfRunsLabel = new Label("Number of Runs: ");
         final Label initHeapIncrementLabel = new Label("Xms Increment (in Mbytes): ");
         final Label maxHeapIncrementLabel = new Label("Xmx Increment (in Mbytes): ");
         final Label gcsLabel = new Label("Garbage Collectors: ");
@@ -56,7 +56,7 @@ public class Main extends Application {
 
         final FileChooser fileChooser = new FileChooser();
         final Button browseButton = new Button("Browse...");
-        browseButton.setOnAction(e -> javaFile = fileChooser.showOpenDialog(primaryStage));
+        browseButton.setOnAction(e -> appContainer = fileChooser.showOpenDialog(primaryStage));
 
         final TextField numberOfRuns = new TextField();
         numberOfRuns.setMaxWidth(60);
@@ -115,7 +115,7 @@ public class Main extends Application {
                 if(shenandoah.isSelected()) {
                     gcTypes.add(GCType.SHENANDOAH);
                 }
-                correctParams.set(setParams(javaFile, Integer.parseInt(numberOfRuns.getText()), Integer.parseInt(initHeapIncrement.getText()),
+                correctParams.set(setParams(appContainer, Integer.parseInt(numberOfRuns.getText()), Integer.parseInt(initHeapIncrement.getText()),
                         Integer.parseInt(maxHeapIncrement.getText()), gcTypes));
                 if(correctParams.get()) {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
@@ -165,20 +165,20 @@ public class Main extends Application {
             }
             else {
                 try {
-                    GCPerfDriver.launch(launcherParams.getApp(), launcherParams.getNumOfRuns(),
+                    GCPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(),
                             launcherParams.getInitHeapIncrementSize(), launcherParams.getMaxHeapIncrementSize(),
                             launcherParams.getGcTypes());
-                } catch (IOException | PythonExecutionException ioException) {
+                } catch (IOException | PythonExecutionException | InterruptedException ioException) {
                     ioException.printStackTrace();
                 }
             }
         }));
     }
 
-    private static boolean setParams(File app, int numberOfRuns, int initHeapIncrement, int maxHeapIncrement,
+    private static boolean setParams(File file, int numberOfRuns, int initHeapIncrement, int maxHeapIncrement,
                                   List<GCType> gcTypes) {
         try {
-            launcherParams.setApp(app);
+            launcherParams.setFile(file);
             launcherParams.setNumOfRuns(numberOfRuns);
             launcherParams.setInitHeapIncrementSize(initHeapIncrement);
             launcherParams.setMaxHeapIncrementSize(maxHeapIncrement);
@@ -191,23 +191,23 @@ public class Main extends Application {
 }
 
 class LauncherParams {
-    private File app;
+    private File file;
     private int numOfRuns;
     private int initHeapIncrementSize;
     private int maxHeapIncrementSize;
     private List<GCType> gcTypes;
     private IllegalArgumentException illegalArgumentException = null;
 
-    public File getApp() {
-        return app;
+    public File getFile() {
+        return file;
     }
 
-    public void setApp(File app) {
-        if(app == null || !app.getName().endsWith(".class")) {
-            illegalArgumentException = new IllegalArgumentException("Please select a Java application class file");
+    public void setFile(File file) {
+        if(file == null || (!file.getName().endsWith(".class") && !file.getName().endsWith(".jar"))) {
+            illegalArgumentException = new IllegalArgumentException("Please select a Java application class file or a jar file");
             throw illegalArgumentException;
         }
-        this.app = app;
+        this.file = file;
     }
 
     public int getNumOfRuns() {
