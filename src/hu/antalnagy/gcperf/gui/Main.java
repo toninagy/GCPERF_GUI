@@ -53,6 +53,7 @@ public class Main extends Application {
         final CheckBox g1 = new CheckBox(GCType.G1.name());
         final CheckBox zgc = new CheckBox(GCType.ZGC.name());
         final CheckBox shenandoah = new CheckBox(GCType.SHENANDOAH.name());
+        final CheckBox exportToCSV = new CheckBox("Export Results to CSV");
 
         final FileChooser fileChooser = new FileChooser();
         final Button browseButton = new Button("Browse...");
@@ -151,6 +152,7 @@ public class Main extends Application {
         gridPane.add(shenandoah, 2, 6);
         gridPane.add(addButton, 1, 8);
         gridPane.add(runGcAnalysisButton, 1, 9);
+        gridPane.add(exportToCSV, 2, 9);
         root.getChildren().add(gridPane);
         primaryStage.setTitle("Java GC Performance Analyzer");
         primaryStage.setScene(new Scene(root, 800, 600));
@@ -167,9 +169,9 @@ public class Main extends Application {
                 try {
                     GCPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(),
                             launcherParams.getInitHeapIncrementSize(), launcherParams.getMaxHeapIncrementSize(),
-                            launcherParams.getGcTypes());
-                } catch (IOException | PythonExecutionException | InterruptedException ioException) {
-                    ioException.printStackTrace();
+                            launcherParams.getGcTypes(), exportToCSV.isSelected());
+                } catch (IOException | PythonExecutionException | InterruptedException exception) {
+                    exception.printStackTrace();
                 }
             }
         }));
