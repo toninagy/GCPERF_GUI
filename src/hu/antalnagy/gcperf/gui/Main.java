@@ -44,10 +44,16 @@ public class Main extends Application {
         final Label title = new Label("GC Analyzer");
         final Label browseLabel = new Label("Class File or Jar File: ");
         final Label numberOfRunsLabel = new Label("Number of Runs: ");
-        final Label initHeapIncrementLabel = new Label("Xms Increment (in Mbytes): ");
-        final Label maxHeapIncrementLabel = new Label("Xmx Increment (in Mbytes): ");
+        final Label initHeapLabel = new Label("Initial Start Heap Size (Xms) in MB: ");
+        final Label initMaxHeapLabel = new Label("Initial Maximum Heap Size (Xmx) in MB: ");
+        final Label initHeapIncrementLabel = new Label("Xms Increment in MB: ");
+        final Label maxHeapIncrementLabel = new Label("Xmx Increment in MB: ");
         final Label gcsLabel = new Label("Garbage Collectors: ");
 
+        final CheckBox defaultInitHeapSize = new CheckBox("default");
+        final CheckBox defaultInitMaxHeapSize = new CheckBox("default");
+        final CheckBox defaultInitHeapIncrementSize = new CheckBox("default");
+        final CheckBox defaultMaxHeapIncrementSize = new CheckBox("default");
         final CheckBox serial = new CheckBox(GCType.SERIAL.name());
         final CheckBox parallel = new CheckBox(GCType.PARALLEL.name());
         final CheckBox g1 = new CheckBox(GCType.G1.name());
@@ -60,33 +66,29 @@ public class Main extends Application {
         browseButton.setOnAction(e -> appContainer = fileChooser.showOpenDialog(primaryStage));
 
         final TextField numberOfRuns = new TextField();
-        numberOfRuns.setMaxWidth(60);
-        numberOfRuns.textProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue.matches("\\d*")) {
-                numberOfRuns.setText(newValue.replaceAll("[^\\d]", ""));
-            }
-        });
+        setNumField(numberOfRuns);
+        final TextField initHeap = new TextField();
+        setNumField(initHeap);
+        final TextField maxHeap = new TextField();
+        setNumField(maxHeap);
         final TextField initHeapIncrement = new TextField();
-        initHeapIncrement.setMaxWidth(60);
-        initHeapIncrement.textProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue.matches("\\d*")) {
-                initHeapIncrement.setText(newValue.replaceAll("[^\\d]", ""));
-            }
-        });
+        setNumField(initHeapIncrement);
         final TextField maxHeapIncrement = new TextField();
-        maxHeapIncrement.setMaxWidth(60);
-        maxHeapIncrement.textProperty().addListener((observable, oldValue, newValue) -> {
-            if (!newValue.matches("\\d*")) {
-                maxHeapIncrement.setText(newValue.replaceAll("[^\\d]", ""));
-            }
-        });
+        setNumField(maxHeapIncrement);
+
+        setDefaultCheckboxes(defaultInitHeapSize, initHeap, 4);
+        setDefaultCheckboxes(defaultInitMaxHeapSize, maxHeap, 64);
+        setDefaultCheckboxes(defaultInitHeapIncrementSize, initHeapIncrement, 128);
+        setDefaultCheckboxes(defaultMaxHeapIncrementSize, maxHeapIncrement, 256);
 
         final Button runGcAnalysisButton = new Button("Run GC Analysis");
         final Button addButton = new Button("Set/Refresh Parameters");
         addButton.setOnAction(e -> {
             if ((numberOfRuns.getText() == null || numberOfRuns.getText().isEmpty())
-            || (initHeapIncrement.getText() == null || initHeapIncrement.getText().isEmpty())
-            || (maxHeapIncrement.getText() == null || maxHeapIncrement.getText().isEmpty())) {
+                    || (initHeap.getText() == null || initHeap.getText().isEmpty())
+                    || (maxHeap.getText() == null || maxHeap.getText().isEmpty())
+                    || (initHeapIncrement.getText() == null || initHeapIncrement.getText().isEmpty())
+                    || (maxHeapIncrement.getText() == null || maxHeapIncrement.getText().isEmpty())) {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Setting/Refreshing Parameters Failed");
                 alert.setContentText("Some input fields are empty\n" +
@@ -116,8 +118,8 @@ public class Main extends Application {
                 if(shenandoah.isSelected()) {
                     gcTypes.add(GCType.SHENANDOAH);
                 }
-                correctParams.set(setParams(appContainer, Integer.parseInt(numberOfRuns.getText()), Integer.parseInt(initHeapIncrement.getText()),
-                        Integer.parseInt(maxHeapIncrement.getText()), gcTypes));
+                correctParams.set(setParams(appContainer, Integer.parseInt(numberOfRuns.getText()), Integer.parseInt(initHeap.getText()),
+                        Integer.parseInt(maxHeap.getText()), Integer.parseInt(initHeapIncrement.getText()), Integer.parseInt(maxHeapIncrement.getText()), gcTypes));
                 if(correctParams.get()) {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("Parameters Set");
@@ -138,21 +140,29 @@ public class Main extends Application {
         gridPane.add(title, 0, 0);
         gridPane.add(browseLabel, 0, 1);
         gridPane.add(numberOfRunsLabel, 0, 2);
-        gridPane.add(initHeapIncrementLabel, 0, 3);
-        gridPane.add(maxHeapIncrementLabel, 0, 4);
-        gridPane.add(gcsLabel, 0, 5);
+        gridPane.add(initHeapLabel, 0, 3);
+        gridPane.add(initMaxHeapLabel, 0, 4);
+        gridPane.add(initHeapIncrementLabel, 0, 5);
+        gridPane.add(maxHeapIncrementLabel, 0, 6);
+        gridPane.add(gcsLabel, 0, 7);
         gridPane.add(browseButton, 1, 1);
         gridPane.add(numberOfRuns, 1, 2);
-        gridPane.add(initHeapIncrement, 1, 3);
-        gridPane.add(maxHeapIncrement, 1, 4);
-        gridPane.add(serial, 1, 5);
-        gridPane.add(parallel, 1, 6);
-        gridPane.add(g1, 1, 7);
-        gridPane.add(zgc, 2, 5);
-        gridPane.add(shenandoah, 2, 6);
-        gridPane.add(addButton, 1, 8);
-        gridPane.add(runGcAnalysisButton, 1, 9);
-        gridPane.add(exportToCSV, 2, 9);
+        gridPane.add(initHeap, 1, 3);
+        gridPane.add(maxHeap, 1, 4);
+        gridPane.add(initHeapIncrement, 1, 5);
+        gridPane.add(maxHeapIncrement, 1, 6);
+        gridPane.add(defaultInitHeapSize, 2, 3);
+        gridPane.add(defaultInitMaxHeapSize, 2, 4);
+        gridPane.add(defaultInitHeapIncrementSize, 2, 5);
+        gridPane.add(defaultMaxHeapIncrementSize, 2, 6);
+        gridPane.add(serial, 1, 7);
+        gridPane.add(parallel, 1, 8);
+        gridPane.add(g1, 1, 9);
+        gridPane.add(zgc, 2, 7);
+        gridPane.add(shenandoah, 2, 8);
+        gridPane.add(addButton, 1, 10);
+        gridPane.add(runGcAnalysisButton, 1, 11);
+        gridPane.add(exportToCSV, 2, 11);
         root.getChildren().add(gridPane);
         primaryStage.setTitle("Java GC Performance Analyzer");
         primaryStage.setScene(new Scene(root, 800, 600));
@@ -167,9 +177,9 @@ public class Main extends Application {
             }
             else {
                 try {
-                    GCPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(),
-                            launcherParams.getInitHeapIncrementSize(), launcherParams.getMaxHeapIncrementSize(),
-                            launcherParams.getGcTypes(), exportToCSV.isSelected());
+                    GCPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(), launcherParams.getInitHeapSize(),
+                            launcherParams.getMaxHeapSize(), launcherParams.getInitHeapIncrementSize(),
+                            launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes(), exportToCSV.isSelected());
                 } catch (IOException | PythonExecutionException | InterruptedException exception) {
                     exception.printStackTrace();
                 }
@@ -177,11 +187,13 @@ public class Main extends Application {
         }));
     }
 
-    private static boolean setParams(File file, int numberOfRuns, int initHeapIncrement, int maxHeapIncrement,
-                                  List<GCType> gcTypes) {
+    private static boolean setParams(File file, int numberOfRuns, int initHeap, int maxHeap, int initHeapIncrement,
+                                     int maxHeapIncrement, List<GCType> gcTypes) {
         try {
             launcherParams.setFile(file);
             launcherParams.setNumOfRuns(numberOfRuns);
+            launcherParams.setInitHeapSize(initHeap);
+            launcherParams.setMaxHeapSize(maxHeap);
             launcherParams.setInitHeapIncrementSize(initHeapIncrement);
             launcherParams.setMaxHeapIncrementSize(maxHeapIncrement);
             launcherParams.setGcTypes(gcTypes);
@@ -190,11 +202,36 @@ public class Main extends Application {
             return false;
         }
     }
+
+    private static void setNumField(TextField numField) {
+        numField.setMaxWidth(90);
+        numField.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (!newValue.matches("\\d*")) {
+                numField.setText(newValue.replaceAll("[^\\d]", ""));
+            }
+        });
+    }
+
+    private static void setDefaultCheckboxes(CheckBox checkbox, TextField numField, final int value) {
+        checkbox.setOnAction(e -> {
+            if(checkbox.isSelected()) {
+                numField.clear();
+                numField.setText(String.valueOf(value));
+                numField.setEditable(false);
+                numField.setStyle("-fx-control-inner-background: #e4e7ed;");
+            } else {
+                numField.setEditable(true);
+                numField.setStyle("-fx-control-inner-background: white;");
+            }
+        });
+    }
 }
 
 class LauncherParams {
     private File file;
     private int numOfRuns;
+    private int initHeapSize;
+    private int maxHeapSize;
     private int initHeapIncrementSize;
     private int maxHeapIncrementSize;
     private List<GCType> gcTypes;
@@ -222,6 +259,30 @@ class LauncherParams {
             throw illegalArgumentException;
         }
         this.numOfRuns = numOfRuns;
+    }
+
+    public int getInitHeapSize() {
+        return initHeapSize;
+    }
+
+    public void setInitHeapSize(int initHeapSize) {
+        if(initHeapSize < 1 || 1999 < initHeapSize) {
+            illegalArgumentException = new IllegalArgumentException("Initial heap size must be between 1MB and 1999MB");
+            throw illegalArgumentException;
+        }
+        this.initHeapSize = initHeapSize;
+    }
+
+    public int getMaxHeapSize() {
+        return maxHeapSize;
+    }
+
+    public void setMaxHeapSize(int maxHeapSize) {
+        if(maxHeapSize < 16 || 1999 < maxHeapSize) {
+            illegalArgumentException = new IllegalArgumentException("Maximum heap size must be between 16MB and 1999MB");
+            throw illegalArgumentException;
+        }
+        this.maxHeapSize = maxHeapSize;
     }
 
     public int getInitHeapIncrementSize() {
