@@ -1,6 +1,7 @@
 package hu.antalnagy.gcperf.gui;
 
 import com.github.sh0nk.matplotlib4j.PythonExecutionException;
+import hu.antalnagy.gcperf.Analysis;
 import hu.antalnagy.gcperf.GCType;
 import hu.antalnagy.gcperf.driver.GCPerfDriver;
 import javafx.application.Application;
@@ -22,11 +23,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main extends Application {
     private static final LauncherParams launcherParams = new LauncherParams();
-    private static final AtomicBoolean correctParams = new AtomicBoolean(false);
+    private static boolean correctParams = false;
     private static File appContainer;
 
     public static void main(String[] args) {
@@ -37,7 +37,7 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
         final Group root = new Group();
         final GridPane gridPane = new GridPane();
-        gridPane.setVgap(20);
+        gridPane.setVgap(23);
         gridPane.setHgap(10);
         gridPane.setPadding(new Insets(10, 10, 10, 10));
 
@@ -49,6 +49,7 @@ public class Main extends Application {
         final Label initHeapIncrementLabel = new Label("Xms Increment in MB: ");
         final Label maxHeapIncrementLabel = new Label("Xmx Increment in MB: ");
         final Label gcsLabel = new Label("Garbage Collectors: ");
+        final Label metricsLabel = new Label("Metrics: ");
 
         final CheckBox defaultInitHeapSize = new CheckBox("default");
         final CheckBox defaultInitMaxHeapSize = new CheckBox("default");
@@ -59,6 +60,14 @@ public class Main extends Application {
         final CheckBox g1 = new CheckBox(GCType.G1.name());
         final CheckBox zgc = new CheckBox(GCType.ZGC.name());
         final CheckBox shenandoah = new CheckBox(GCType.SHENANDOAH.name());
+
+        final CheckBox bestGCRuntime = new CheckBox("Best GC Runtime");
+        final CheckBox avgGCRuntime = new CheckBox("Average GC Runtime");
+        final CheckBox throughput = new CheckBox("Throughput");
+        final CheckBox latency = new CheckBox("Latency");
+        final CheckBox minorPauses = new CheckBox("No. of Minor Pauses");
+        final CheckBox fullPauses = new CheckBox("No. of Full Pauses");
+
         final CheckBox exportToCSV = new CheckBox("Export Results to CSV");
 
         final FileChooser fileChooser = new FileChooser();
@@ -101,6 +110,13 @@ public class Main extends Application {
                 alert.setContentText("Please select at least one Garbage Collector to measure its performance\n" +
                         "Parameters were not updated");
                 alert.showAndWait();
+            } else if(!bestGCRuntime.isSelected() && !avgGCRuntime.isSelected() && !throughput.isSelected()
+            && !latency.isSelected() && !minorPauses.isSelected() && !fullPauses.isSelected()) {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("No metric selected");
+                alert.setContentText("Please select at least one metric to measure the performance on\n" +
+                        "Parameters were not updated");
+                alert.showAndWait();
             } else {
                 List<GCType> gcTypes = new ArrayList<>();
                 if(serial.isSelected()) {
@@ -118,9 +134,29 @@ public class Main extends Application {
                 if(shenandoah.isSelected()) {
                     gcTypes.add(GCType.SHENANDOAH);
                 }
-                correctParams.set(setParams(appContainer, Integer.parseInt(numberOfRuns.getText()), Integer.parseInt(initHeap.getText()),
-                        Integer.parseInt(maxHeap.getText()), Integer.parseInt(initHeapIncrement.getText()), Integer.parseInt(maxHeapIncrement.getText()), gcTypes));
-                if(correctParams.get()) {
+                List<Analysis.Metrics> metrics = new ArrayList<>();
+                if(bestGCRuntime.isSelected()) {
+                    metrics.add(Analysis.Metrics.BestGCRuntime);
+                }
+                if(avgGCRuntime.isSelected()) {
+                    metrics.add(Analysis.Metrics.AvgGCRuntime);
+                }
+                if(throughput.isSelected()) {
+                    metrics.add(Analysis.Metrics.Throughput);
+                }
+                if(latency.isSelected()) {
+                    metrics.add(Analysis.Metrics.Latency);
+                }
+                if(minorPauses.isSelected()) {
+                    metrics.add(Analysis.Metrics.MinorPauses);
+                }
+                if(fullPauses.isSelected()) {
+                    metrics.add(Analysis.Metrics.FullPauses);
+                }
+                correctParams = setParams(appContainer, Integer.parseInt(numberOfRuns.getText()), Integer.parseInt(initHeap.getText()),
+                        Integer.parseInt(maxHeap.getText()), Integer.parseInt(initHeapIncrement.getText()),
+                        Integer.parseInt(maxHeapIncrement.getText()), gcTypes, metrics);
+                if(correctParams) {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("Parameters Set");
                     alert.setContentText("All parameters set, GC analysis is ready to be started");
@@ -156,20 +192,27 @@ public class Main extends Application {
         gridPane.add(defaultInitHeapIncrementSize, 2, 5);
         gridPane.add(defaultMaxHeapIncrementSize, 2, 6);
         gridPane.add(serial, 1, 7);
-        gridPane.add(parallel, 1, 8);
-        gridPane.add(g1, 1, 9);
-        gridPane.add(zgc, 2, 7);
+        gridPane.add(parallel, 2, 7);
+        gridPane.add(g1, 3, 7);
+        gridPane.add(zgc, 1, 8);
         gridPane.add(shenandoah, 2, 8);
-        gridPane.add(addButton, 1, 10);
-        gridPane.add(runGcAnalysisButton, 1, 11);
-        gridPane.add(exportToCSV, 2, 11);
+        gridPane.add(addButton, 1, 11);
+        gridPane.add(runGcAnalysisButton, 1, 12);
+        gridPane.add(metricsLabel, 0, 9);
+        gridPane.add(bestGCRuntime, 1, 9);
+        gridPane.add(avgGCRuntime, 2, 9);
+        gridPane.add(throughput, 3, 9);
+        gridPane.add(latency, 1, 10);
+        gridPane.add(minorPauses, 2, 10);
+        gridPane.add(fullPauses, 3, 10);
+        gridPane.add(exportToCSV, 2, 12);
         root.getChildren().add(gridPane);
         primaryStage.setTitle("Java GC Performance Analyzer");
-        primaryStage.setScene(new Scene(root, 800, 600));
+        primaryStage.setScene(new Scene(root, 1024, 768));
         primaryStage.show();
         ExecutorService executor = Executors.newFixedThreadPool(10);
         executor.execute(() -> runGcAnalysisButton.setOnAction(e -> {
-            if(!correctParams.get()) {
+            if(!correctParams) {
                 Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 alert.setTitle("Invalid Parameters");
                 alert.setContentText("Please set all parameters correctly");
@@ -179,7 +222,8 @@ public class Main extends Application {
                 try {
                     GCPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(), launcherParams.getInitHeapSize(),
                             launcherParams.getMaxHeapSize(), launcherParams.getInitHeapIncrementSize(),
-                            launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes(), exportToCSV.isSelected());
+                            launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes(),
+                            launcherParams.getMetrics().toArray(Analysis.Metrics[]::new), exportToCSV.isSelected());
                 } catch (IOException | PythonExecutionException | InterruptedException exception) {
                     exception.printStackTrace();
                 }
@@ -188,7 +232,7 @@ public class Main extends Application {
     }
 
     private static boolean setParams(File file, int numberOfRuns, int initHeap, int maxHeap, int initHeapIncrement,
-                                     int maxHeapIncrement, List<GCType> gcTypes) {
+                                     int maxHeapIncrement, List<GCType> gcTypes, List<Analysis.Metrics> metrics) {
         try {
             launcherParams.setFile(file);
             launcherParams.setNumOfRuns(numberOfRuns);
@@ -197,6 +241,7 @@ public class Main extends Application {
             launcherParams.setInitHeapIncrementSize(initHeapIncrement);
             launcherParams.setMaxHeapIncrementSize(maxHeapIncrement);
             launcherParams.setGcTypes(gcTypes);
+            launcherParams.setMetrics(metrics);
             return true;
         } catch(IllegalArgumentException e) {
             return false;
@@ -235,6 +280,7 @@ class LauncherParams {
     private int initHeapIncrementSize;
     private int maxHeapIncrementSize;
     private List<GCType> gcTypes;
+    private List<Analysis.Metrics> metrics;
     private IllegalArgumentException illegalArgumentException = null;
 
     public File getFile() {
@@ -315,6 +361,14 @@ class LauncherParams {
 
     public void setGcTypes(List<GCType> gcTypes) {
         this.gcTypes = gcTypes;
+    }
+
+    public List<Analysis.Metrics> getMetrics() {
+        return metrics;
+    }
+
+    public void setMetrics(List<Analysis.Metrics> metrics) {
+        this.metrics = metrics;
     }
 
     public IllegalArgumentException getIllegalArgumentException() {
