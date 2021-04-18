@@ -5,6 +5,9 @@ import hu.antalnagy.gcperf.Analysis;
 import hu.antalnagy.gcperf.GCType;
 import hu.antalnagy.gcperf.driver.GCPerfDriver;
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.concurrent.Service;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -21,8 +24,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class Main extends Application {
     private static final LauncherParams launcherParams = new LauncherParams();
@@ -37,7 +38,7 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
         final Group root = new Group();
         final GridPane gridPane = new GridPane();
-        gridPane.setVgap(23);
+        gridPane.setVgap(24);
         gridPane.setHgap(10);
         gridPane.setPadding(new Insets(10, 10, 10, 10));
 
@@ -156,17 +157,15 @@ public class Main extends Application {
                 correctParams = setParams(appContainer, Integer.parseInt(numberOfRuns.getText()), Integer.parseInt(initHeap.getText()),
                         Integer.parseInt(maxHeap.getText()), Integer.parseInt(initHeapIncrement.getText()),
                         Integer.parseInt(maxHeapIncrement.getText()), gcTypes, metrics);
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
                 if(correctParams) {
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("Parameters Set");
                     alert.setContentText("All parameters set, GC analysis is ready to be started");
-                    alert.showAndWait();
                 } else {
-                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("Invalid Parameters");
                     alert.setContentText(launcherParams.getIllegalArgumentException().getMessage());
-                    alert.showAndWait();
                 }
+                alert.showAndWait();
             }
         });
 
@@ -196,8 +195,8 @@ public class Main extends Application {
         gridPane.add(g1, 3, 7);
         gridPane.add(zgc, 1, 8);
         gridPane.add(shenandoah, 2, 8);
-        gridPane.add(addButton, 1, 11);
-        gridPane.add(runGcAnalysisButton, 1, 12);
+        gridPane.add(addButton, 1, 12);
+        gridPane.add(runGcAnalysisButton, 1, 14);
         gridPane.add(metricsLabel, 0, 9);
         gridPane.add(bestGCRuntime, 1, 9);
         gridPane.add(avgGCRuntime, 2, 9);
@@ -205,30 +204,69 @@ public class Main extends Application {
         gridPane.add(latency, 1, 10);
         gridPane.add(minorPauses, 2, 10);
         gridPane.add(fullPauses, 3, 10);
-        gridPane.add(exportToCSV, 2, 12);
-        root.getChildren().add(gridPane);
+        gridPane.add(exportToCSV, 2, 14);
+
+        ProgressBar progressBar = new ProgressBar();
+        progressBar.setPrefSize(300, 30);
+
+        gridPane.add(progressBar, 1, 13);
+
+        TabPane tabPane = new TabPane();
+        tabPane.setTabMinWidth(485);
+        Tab mainTab = new Tab("GC Performance Analyzer");
+        mainTab.setClosable(false);
+        mainTab.setContent(gridPane);
+        tabPane.getTabs().add(mainTab);
+        Tab statisticsTab = new Tab("Statistics");
+        GridPane statisticsGrid = new GridPane(); //TODO
+        statisticsTab.setClosable(false);
+        statisticsTab.setContent(statisticsGrid);
+        tabPane.getTabs().add(statisticsTab);
+        root.getChildren().add(tabPane);
         primaryStage.setTitle("Java GC Performance Analyzer");
         primaryStage.setScene(new Scene(root, 1024, 768));
         primaryStage.show();
-        ExecutorService executor = Executors.newFixedThreadPool(10);
-        executor.execute(() -> runGcAnalysisButton.setOnAction(e -> {
-            if(!correctParams) {
-                Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                alert.setTitle("Invalid Parameters");
-                alert.setContentText("Please set all parameters correctly");
-                alert.showAndWait();
+        Service<Void> analysis = new Service<>() {
+            @Override
+            protected Task<Void> createTask() {
+                return new Task<>() {
+                    @Override
+                    protected Void call() {
+                        if (!correctParams) {
+                            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                            alert.setTitle("Invalid Parameters");
+                            alert.setContentText("Please set all parameters correctly");
+                            alert.showAndWait();
+                        } else {
+                            try {
+                                for(double i=0.0; i<1.0; i+=0.1) { //TODO
+                                    progressBar.setProgress(i);
+                                    try {
+                                        Thread.sleep(100);
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                                GCPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(), launcherParams.getInitHeapSize(),
+                                        launcherParams.getMaxHeapSize(), launcherParams.getInitHeapIncrementSize(),
+                                        launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes(),
+                                        launcherParams.getMetrics().toArray(Analysis.Metrics[]::new), exportToCSV.isSelected());
+
+                            } catch (IOException | PythonExecutionException | InterruptedException exception) {
+                                exception.printStackTrace();
+                            }
+                        }
+                        return null;
+                    }
+                };
             }
-            else {
-                try {
-                    GCPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(), launcherParams.getInitHeapSize(),
-                            launcherParams.getMaxHeapSize(), launcherParams.getInitHeapIncrementSize(),
-                            launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes(),
-                            launcherParams.getMetrics().toArray(Analysis.Metrics[]::new), exportToCSV.isSelected());
-                } catch (IOException | PythonExecutionException | InterruptedException exception) {
-                    exception.printStackTrace();
-                }
-            }
-        }));
+        };
+        runGcAnalysisButton.setOnAction(e -> analysis.start());
+
+        primaryStage.setOnCloseRequest(t -> {
+            Platform.exit();
+            System.exit(0);
+        });
     }
 
     private static boolean setParams(File file, int numberOfRuns, int initHeap, int maxHeap, int initHeapIncrement,
