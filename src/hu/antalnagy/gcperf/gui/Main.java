@@ -14,6 +14,7 @@ import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -22,13 +23,16 @@ import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main extends Application {
     private static final LauncherParams launcherParams = new LauncherParams();
-    private static final GCPerfDriver gcPerfDriver = new GCPerfDriver();
+    private static GCPerfDriver gcPerfDriver = new GCPerfDriver();
     private static boolean correctParams = false;
     private static File appContainer;
     private static final AtomicBoolean error = new AtomicBoolean(false);
@@ -272,20 +276,46 @@ public class Main extends Application {
         gridPane.add(progressMessage, 2, 13);
 
         TabPane tabPane = new TabPane();
-        tabPane.setTabMinWidth(485);
+        tabPane.setTabMinWidth(319);
         Tab mainTab = new Tab("GC Performance Analyzer");
         mainTab.setClosable(false);
         mainTab.setContent(gridPane);
         tabPane.getTabs().add(mainTab);
-        Tab statisticsTab = new Tab("Statistics");
-        GridPane statisticsGrid = new GridPane(); //TODO
+
+        Tab statisticsTab = new Tab("Results and Statistics");
+        final GridPane statisticsGrid = new GridPane();
+        final Label nothingToDisplay = new Label("No results available yet");
+        nothingToDisplay.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+        nothingToDisplay.setTextFill(Color.CRIMSON);
+        statisticsGrid.setVgap(24);
+        statisticsGrid.setHgap(5);
+        statisticsGrid.setPadding(new Insets(10, 10, 10, 10));
+        statisticsGrid.add(nothingToDisplay, 0, 0);
         statisticsTab.setClosable(false);
         statisticsTab.setContent(statisticsGrid);
         tabPane.getTabs().add(statisticsTab);
+
+        Tab logTab = new Tab("Log Output");
+        final ScrollPane scrollPane = new ScrollPane();
+        final StackPane stackPane = new StackPane();
+        final Label noLogsToDisplayLabel = new Label("No logs available yet");
+        noLogsToDisplayLabel.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+        stackPane.getChildren().add(noLogsToDisplayLabel);
+        scrollPane.setContent(stackPane);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        logTab.setClosable(false);
+        logTab.setContent(scrollPane);
+        tabPane.getTabs().add(logTab);
+
         root.getChildren().add(tabPane);
         primaryStage.setTitle("Java GC Performance Analyzer");
         primaryStage.setScene(new Scene(root, 1024, 768));
+        primaryStage.sizeToScene();
         primaryStage.show();
+
         Service<Void> analysis = new Service<>() {
             @Override
             protected Task<Void> createTask() {
@@ -328,12 +358,13 @@ public class Main extends Application {
                                         gcPerfDriver.getProgress().getProgressMessage());
                                 if (gcPerfDriver.getProgress().isDone()) {
                                     updateProgressBar(progressBar, progressMessage, true);
-                                    running.set(false);
-                                    runGcAnalysisButton.setDisable(false);
+                                    updateStatisticsTab(gcPerfDriver.getLeaderboard(), statisticsGrid);
+                                    updateLogTab(stackPane);
+                                    cleanUp(running, runGcAnalysisButton);
                                 } else if (gcPerfDriver.getProgress().isFailed() || error.get()) {
                                     updateProgressBar(progressBar, progressMessage, false);
-                                    running.set(false);
-                                    runGcAnalysisButton.setDisable(false);
+                                    updateLogTab(stackPane);
+                                    cleanUp(running, runGcAnalysisButton);
                                 }
                             });
                         }
@@ -357,12 +388,42 @@ public class Main extends Application {
         });
     }
 
-    private void sleep(int millis) {
+    private void updateLogTab(final StackPane stackPane) {
+        final StringBuilder sb = new StringBuilder();
         try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+            Files.lines(Path.of(Paths.get("").toAbsolutePath() + "/log"))
+                    .forEach(line -> sb.append(line).append("\n"));
+        } catch (IOException ex) {
+            ex.printStackTrace();
         }
+        stackPane.getChildren().clear();
+        stackPane.getChildren().add(new TextArea(sb.toString()));
+    }
+
+    private void updateStatisticsTab(List<GCType> leaderboard, final GridPane statisticsGrid) {
+        statisticsGrid.getChildren().clear();
+        Label position;
+        Label gcType;
+        Label suggestedGCs = new Label("Suggested GC Types in Order: ");
+        suggestedGCs.setTextFill(Color.CRIMSON);
+        suggestedGCs.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+        statisticsGrid.add(suggestedGCs, 0, 0);
+        for(int i = 1; i <= leaderboard.size(); i++) {
+            position = new Label(i + ")");
+            position.setTextFill(Color.CRIMSON);
+            position.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+            gcType = new Label(leaderboard.get(i-1).name());
+            gcType.setTextFill(Color.CRIMSON);
+            gcType.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+            statisticsGrid.add(position, 0, i);
+            statisticsGrid.add(gcType, 1, i);
+        }
+    }
+
+    private void cleanUp(final AtomicBoolean running, final Button runGcAnalysisButton) {
+        running.set(false);
+        runGcAnalysisButton.setDisable(false);
+        gcPerfDriver = new GCPerfDriver();
     }
 
     private void updateProgressBar(final ProgressBar progressBar, final Label progressMessage, double progress,
@@ -385,6 +446,14 @@ public class Main extends Application {
     private void resetProgressBar(final ProgressBar progressBar) {
         progressBar.setProgress(ProgressIndicator.INDETERMINATE_PROGRESS);
         progressBar.setStyle("-fx-accent: #268de7");
+    }
+
+    private void sleep(int millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }
 
