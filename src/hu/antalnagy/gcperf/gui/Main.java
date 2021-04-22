@@ -27,15 +27,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main extends Application {
     private static final LauncherParams launcherParams = new LauncherParams();
-    private static GCPerfDriver gcPerfDriver = new GCPerfDriver();
+    private static final GCPerfDriver gcPerfDriver = new GCPerfDriver();
     private static boolean correctParams = false;
     private static File appContainer;
     private static final AtomicBoolean error = new AtomicBoolean(false);
+    private static final Insets padding = new Insets(10, 10, 10, 10);
 
     public static void main(String[] args) {
         launch(args);
@@ -91,7 +93,7 @@ public class Main extends Application {
         final GridPane gridPane = new GridPane();
         gridPane.setVgap(24);
         gridPane.setHgap(10);
-        gridPane.setPadding(new Insets(10, 10, 10, 10));
+        gridPane.setPadding(padding);
 
         final Label title = new Label("GC Analyzer");
         final Label browseLabel = new Label("Class File or Jar File: ");
@@ -129,7 +131,9 @@ public class Main extends Application {
         browseButton.setMinWidth(150);
         browseButton.setOnAction(e -> {
             appContainer = fileChooser.showOpenDialog(primaryStage);
-            selectedFileLabel.setText(appContainer.getName());
+            if(appContainer != null) {
+                selectedFileLabel.setText(appContainer.getName());
+            }
         });
 
         ProgressBar progressBar = new ProgressBar();
@@ -286,15 +290,15 @@ public class Main extends Application {
         final GridPane statisticsGrid = new GridPane();
         final Label nothingToDisplay = new Label("No results available yet");
         nothingToDisplay.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
-        nothingToDisplay.setTextFill(Color.CRIMSON);
-        statisticsGrid.setVgap(24);
-        statisticsGrid.setHgap(5);
-        statisticsGrid.setPadding(new Insets(10, 10, 10, 10));
+        nothingToDisplay.setTextFill(Color.CORAL);
+        statisticsGrid.setVgap(25);
+        statisticsGrid.setHgap(30);
+        statisticsGrid.setPadding(padding);
+
         statisticsGrid.add(nothingToDisplay, 0, 0);
         statisticsTab.setClosable(false);
         statisticsTab.setContent(statisticsGrid);
         tabPane.getTabs().add(statisticsTab);
-
         Tab logTab = new Tab("Log Output");
         final ScrollPane scrollPane = new ScrollPane();
         final StackPane stackPane = new StackPane();
@@ -358,7 +362,7 @@ public class Main extends Application {
                                         gcPerfDriver.getProgress().getProgressMessage());
                                 if (gcPerfDriver.getProgress().isDone()) {
                                     updateProgressBar(progressBar, progressMessage, true);
-                                    updateStatisticsTab(gcPerfDriver.getLeaderboard(), statisticsGrid);
+                                    updateStatisticsTab(statisticsGrid, gcPerfDriver.getLeaderboard(), gcPerfDriver.getResultMetrics());
                                     updateLogTab(stackPane);
                                     cleanUp(running, runGcAnalysisButton);
                                 } else if (gcPerfDriver.getProgress().isFailed() || error.get()) {
@@ -400,30 +404,59 @@ public class Main extends Application {
         stackPane.getChildren().add(new TextArea(sb.toString()));
     }
 
-    private void updateStatisticsTab(List<GCType> leaderboard, final GridPane statisticsGrid) {
+    private void updateStatisticsTab(final GridPane statisticsGrid, List<GCType> leaderboard, List<String> resultMetrics) {
         statisticsGrid.getChildren().clear();
+        statisticsGrid.setGridLinesVisible(true);
+
         Label position;
         Label gcType;
-        Label suggestedGCs = new Label("Suggested GC Types in Order: ");
-        suggestedGCs.setTextFill(Color.CRIMSON);
+        Label suggestedGCs = new Label("Results: ");
+        suggestedGCs.setTextFill(Color.CORAL);
         suggestedGCs.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
         statisticsGrid.add(suggestedGCs, 0, 0);
         for(int i = 1; i <= leaderboard.size(); i++) {
             position = new Label(i + ")");
-            position.setTextFill(Color.CRIMSON);
+            position.setTextFill(Color.CORAL);
             position.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
             gcType = new Label(leaderboard.get(i-1).name());
-            gcType.setTextFill(Color.CRIMSON);
+            gcType.setTextFill(Color.CORAL);
             gcType.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
             statisticsGrid.add(position, 0, i);
             statisticsGrid.add(gcType, 1, i);
+        }
+        int ridx = leaderboard.size() + 1;
+        int cidx = 0;
+        Label gcTypeLabel = new Label("GCType");
+        Label runNoLabel = new Label("RunNo");
+        Label gcRuntimeLabel = new Label("GCRuntime(sec)");
+        Label throughputLabel = new Label("Throughput(%)");
+        Label fullPausesLabel = new Label("FullPauses");
+        Label minorPausesLabel = new Label("MinorPauses");
+        Arrays.asList(gcTypeLabel, runNoLabel, gcRuntimeLabel, throughputLabel, fullPausesLabel, minorPausesLabel)
+                .forEach(label -> {
+                    label.setTextFill(Color.CORAL);
+                    label.setFont(Font.font("Times New Roman", FontWeight.BOLD, 15));
+                });
+        statisticsGrid.add(gcTypeLabel, cidx++, ridx);
+        statisticsGrid.add(runNoLabel, cidx++, ridx);
+        statisticsGrid.add(gcRuntimeLabel, cidx++, ridx);
+        statisticsGrid.add(throughputLabel, cidx++, ridx);
+        statisticsGrid.add(fullPausesLabel, cidx++, ridx);
+        statisticsGrid.add(minorPausesLabel, cidx, ridx);
+
+        for(String resultString : resultMetrics) {
+            String[] splitByComma = resultString.split(",");
+            int columnCount = 0;
+            ridx++;
+            for(String metric : splitByComma) {
+                statisticsGrid.add(new Label(metric), columnCount++, ridx);
+            }
         }
     }
 
     private void cleanUp(final AtomicBoolean running, final Button runGcAnalysisButton) {
         running.set(false);
         runGcAnalysisButton.setDisable(false);
-        gcPerfDriver = new GCPerfDriver();
     }
 
     private void updateProgressBar(final ProgressBar progressBar, final Label progressMessage, double progress,
