@@ -11,6 +11,7 @@ import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
@@ -282,37 +283,34 @@ public class Main extends Application {
         TabPane tabPane = new TabPane();
         tabPane.setTabMinWidth(319);
         Tab mainTab = new Tab("GC Performance Analyzer");
-        mainTab.setClosable(false);
-        mainTab.setContent(gridPane);
-        tabPane.getTabs().add(mainTab);
+        configureTab(tabPane, mainTab, gridPane);
 
         Tab statisticsTab = new Tab("Results and Statistics");
-        final GridPane statisticsGrid = new GridPane();
+        final ScrollPane scrollPaneStatistics = new ScrollPane();
         final Label nothingToDisplay = new Label("No results available yet");
         nothingToDisplay.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
         nothingToDisplay.setTextFill(Color.CORAL);
-        statisticsGrid.setVgap(25);
+
+        final GridPane statisticsGrid = new GridPane();
+        statisticsGrid.setMaxHeight(750);
+        statisticsGrid.setVgap(20);
         statisticsGrid.setHgap(30);
         statisticsGrid.setPadding(padding);
-
         statisticsGrid.add(nothingToDisplay, 0, 0);
-        statisticsTab.setClosable(false);
-        statisticsTab.setContent(statisticsGrid);
-        tabPane.getTabs().add(statisticsTab);
+
+        configureScrollPane(scrollPaneStatistics, statisticsGrid);
+        configureTab(tabPane, statisticsTab, scrollPaneStatistics);
+
         Tab logTab = new Tab("Log Output");
-        final ScrollPane scrollPane = new ScrollPane();
-        final StackPane stackPane = new StackPane();
+        final ScrollPane scrollPaneLog = new ScrollPane();
         final Label noLogsToDisplayLabel = new Label("No logs available yet");
         noLogsToDisplayLabel.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+        final StackPane stackPane = new StackPane();
         stackPane.getChildren().add(noLogsToDisplayLabel);
-        scrollPane.setContent(stackPane);
-        scrollPane.setFitToHeight(true);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        logTab.setClosable(false);
-        logTab.setContent(scrollPane);
-        tabPane.getTabs().add(logTab);
+        stackPane.setMaxHeight(750);
+
+        configureScrollPane(scrollPaneLog, stackPane);
+        configureTab(tabPane, logTab, scrollPaneLog);
 
         root.getChildren().add(tabPane);
         primaryStage.setTitle("Java GC Performance Analyzer");
@@ -392,6 +390,21 @@ public class Main extends Application {
         });
     }
 
+    private void configureTab(TabPane tabPane, Tab mainTab, Node node) {
+        mainTab.setClosable(false);
+        mainTab.setContent(node);
+        tabPane.getTabs().add(mainTab);
+    }
+
+    private void configureScrollPane(ScrollPane scrollPane, Node node) {
+        scrollPane.setMaxHeight(730);
+        scrollPane.setContent(node);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+    }
+
     private void updateLogTab(final StackPane stackPane) {
         final StringBuilder sb = new StringBuilder();
         try {
@@ -404,10 +417,9 @@ public class Main extends Application {
         stackPane.getChildren().add(new TextArea(sb.toString()));
     }
 
-    private void updateStatisticsTab(final GridPane statisticsGrid, List<GCType> leaderboard, List<String> resultMetrics) {
+    private void updateStatisticsTab(final GridPane statisticsGrid,
+                                     List<GCType> leaderboard, List<String> resultMetrics) {
         statisticsGrid.getChildren().clear();
-        statisticsGrid.setGridLinesVisible(true);
-
         Label position;
         Label gcType;
         Label suggestedGCs = new Label("Results: ");
@@ -417,39 +429,39 @@ public class Main extends Application {
         for(int i = 1; i <= leaderboard.size(); i++) {
             position = new Label(i + ")");
             position.setTextFill(Color.CORAL);
-            position.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+            position.setFont(Font.font("Times New Roman", FontWeight.BOLD, 25));
             gcType = new Label(leaderboard.get(i-1).name());
             gcType.setTextFill(Color.CORAL);
-            gcType.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+            gcType.setFont(Font.font("Times New Roman", FontWeight.BOLD, 25));
             statisticsGrid.add(position, 0, i);
             statisticsGrid.add(gcType, 1, i);
         }
-        int ridx = leaderboard.size() + 1;
-        int cidx = 0;
-        Label gcTypeLabel = new Label("GCType");
-        Label runNoLabel = new Label("RunNo");
-        Label gcRuntimeLabel = new Label("GCRuntime(sec)");
-        Label throughputLabel = new Label("Throughput(%)");
-        Label fullPausesLabel = new Label("FullPauses");
-        Label minorPausesLabel = new Label("MinorPauses");
+        int rIdx = leaderboard.size() + 1;
+        int cIdx = 0;
+        Label gcTypeLabel = new Label("GC Type");
+        Label runNoLabel = new Label("Run No.");
+        Label gcRuntimeLabel = new Label("GC Runtime (sec)");
+        Label throughputLabel = new Label("Throughput (%)");
+        Label fullPausesLabel = new Label("Full Pauses");
+        Label minorPausesLabel = new Label("Minor Pauses");
         Arrays.asList(gcTypeLabel, runNoLabel, gcRuntimeLabel, throughputLabel, fullPausesLabel, minorPausesLabel)
                 .forEach(label -> {
                     label.setTextFill(Color.CORAL);
                     label.setFont(Font.font("Times New Roman", FontWeight.BOLD, 15));
                 });
-        statisticsGrid.add(gcTypeLabel, cidx++, ridx);
-        statisticsGrid.add(runNoLabel, cidx++, ridx);
-        statisticsGrid.add(gcRuntimeLabel, cidx++, ridx);
-        statisticsGrid.add(throughputLabel, cidx++, ridx);
-        statisticsGrid.add(fullPausesLabel, cidx++, ridx);
-        statisticsGrid.add(minorPausesLabel, cidx, ridx);
+        statisticsGrid.add(gcTypeLabel, cIdx++, rIdx);
+        statisticsGrid.add(runNoLabel, cIdx++, rIdx);
+        statisticsGrid.add(gcRuntimeLabel, cIdx++, rIdx);
+        statisticsGrid.add(throughputLabel, cIdx++, rIdx);
+        statisticsGrid.add(fullPausesLabel, cIdx++, rIdx);
+        statisticsGrid.add(minorPausesLabel, cIdx, rIdx);
 
         for(String resultString : resultMetrics) {
             String[] splitByComma = resultString.split(",");
             int columnCount = 0;
-            ridx++;
+            rIdx++;
             for(String metric : splitByComma) {
-                statisticsGrid.add(new Label(metric), columnCount++, ridx);
+                statisticsGrid.add(new Label(metric), columnCount++, rIdx);
             }
         }
     }
