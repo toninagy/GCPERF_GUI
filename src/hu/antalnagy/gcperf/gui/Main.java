@@ -4,6 +4,7 @@ import com.github.sh0nk.matplotlib4j.PythonExecutionException;
 import hu.antalnagy.gcperf.Analysis;
 import hu.antalnagy.gcperf.GCType;
 import hu.antalnagy.gcperf.driver.GCPerfDriver;
+import hu.antalnagy.gcperf.persistence.DBDriver;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.concurrent.Service;
@@ -27,9 +28,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main extends Application {
@@ -292,11 +291,30 @@ public class Main extends Application {
         nothingToDisplay.setTextFill(Color.CORAL);
 
         final GridPane statisticsGrid = new GridPane();
-        statisticsGrid.setMaxHeight(750);
-        statisticsGrid.setVgap(20);
-        statisticsGrid.setHgap(30);
-        statisticsGrid.setPadding(padding);
-        statisticsGrid.add(nothingToDisplay, 0, 0);
+        final Button databaseButton = new Button("Query older results");
+        databaseButton.setOnAction(e -> {
+            try(DBDriver ignored = new DBDriver()) {
+                var resultMap = DBDriver.getDatabaseRows();
+                final GridPane databaseGrid = new GridPane();
+                databaseGrid.add(new Label("File Name"), 0, 0);
+                databaseGrid.add(new Label("Serial"), 1, 0);
+                databaseGrid.add(new Label("Parallel"), 2, 0);
+                databaseGrid.add(new Label("G1"), 3, 0);
+                databaseGrid.add(new Label("ZGC"), 4, 0);
+                databaseGrid.add(new Label("Shenandoah"), 5, 0);
+                databaseGrid.add(new Label("Date"), 6, 0);
+                for(Map.Entry<Integer, List<String>> entry : resultMap.entrySet()) {
+                    int columnIdx = 0;
+                    int rowIdx = entry.getKey();
+                    for(String resultString : entry.getValue()) {
+                        databaseGrid.add(new Label(resultString), columnIdx++, rowIdx);
+                    }
+                }
+                databaseGrid.setGridLinesVisible(true);
+                configureScrollPane(scrollPaneStatistics, databaseGrid);
+            }
+        });
+        configureStatisticsGrid(statisticsGrid, nothingToDisplay, databaseButton);
 
         configureScrollPane(scrollPaneStatistics, statisticsGrid);
         configureTab(tabPane, statisticsTab, scrollPaneStatistics);
@@ -361,6 +379,7 @@ public class Main extends Application {
                                 if (gcPerfDriver.getProgress().isDone()) {
                                     updateProgressBar(progressBar, progressMessage, true);
                                     updateStatisticsTab(statisticsGrid, gcPerfDriver.getLeaderboard(), gcPerfDriver.getResultMetrics());
+                                    configureScrollPane(scrollPaneStatistics, statisticsGrid);
                                     updateLogTab(stackPane);
                                     cleanUp(running, runGcAnalysisButton);
                                 } else if (gcPerfDriver.getProgress().isFailed() || error.get()) {
@@ -390,10 +409,19 @@ public class Main extends Application {
         });
     }
 
-    private void configureTab(TabPane tabPane, Tab mainTab, Node node) {
-        mainTab.setClosable(false);
-        mainTab.setContent(node);
-        tabPane.getTabs().add(mainTab);
+    private void configureStatisticsGrid(GridPane statisticsGrid, Label nothingToDisplay, Button databaseButton) {
+        statisticsGrid.setMaxHeight(750);
+        statisticsGrid.setVgap(20);
+        statisticsGrid.setHgap(30);
+        statisticsGrid.setPadding(padding);
+        statisticsGrid.add(nothingToDisplay, 0, 0);
+        statisticsGrid.add(databaseButton, 0, 1);
+    }
+
+    private void configureTab(TabPane tabPane, Tab tab, Node node) {
+        tab.setClosable(false);
+        tab.setContent(node);
+        tabPane.getTabs().add(tab);
     }
 
     private void configureScrollPane(ScrollPane scrollPane, Node node) {
