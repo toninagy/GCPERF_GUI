@@ -34,10 +34,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class Main extends Application {
     private static final LauncherParams launcherParams = new LauncherParams();
     private static final GCPerfDriver gcPerfDriver = new GCPerfDriver();
-    private static boolean correctParams = false;
-    private static File appContainer;
     private static final AtomicBoolean error = new AtomicBoolean(false);
     private static final Insets padding = new Insets(10, 10, 10, 10);
+    private static boolean correctParams = false;
+    private static File appContainer;
 
     public static void main(String[] args) {
         launch(args);
@@ -131,7 +131,7 @@ public class Main extends Application {
         browseButton.setMinWidth(150);
         browseButton.setOnAction(e -> {
             appContainer = fileChooser.showOpenDialog(primaryStage);
-            if(appContainer != null) {
+            if (appContainer != null) {
                 selectedFileLabel.setText(appContainer.getName());
             }
         });
@@ -293,26 +293,24 @@ public class Main extends Application {
         final GridPane statisticsGrid = new GridPane();
         final Button databaseButton = new Button("Query older results");
         databaseButton.setOnAction(e -> {
-            try(DBDriver ignored = new DBDriver()) {
-                var resultMap = DBDriver.getDatabaseRows();
-                final GridPane databaseGrid = new GridPane();
-                databaseGrid.add(new Label("File Name"), 0, 0);
-                databaseGrid.add(new Label("Serial"), 1, 0);
-                databaseGrid.add(new Label("Parallel"), 2, 0);
-                databaseGrid.add(new Label("G1"), 3, 0);
-                databaseGrid.add(new Label("ZGC"), 4, 0);
-                databaseGrid.add(new Label("Shenandoah"), 5, 0);
-                databaseGrid.add(new Label("Date"), 6, 0);
-                for(Map.Entry<Integer, List<String>> entry : resultMap.entrySet()) {
-                    int columnIdx = 0;
-                    int rowIdx = entry.getKey();
-                    for(String resultString : entry.getValue()) {
-                        databaseGrid.add(new Label(resultString), columnIdx++, rowIdx);
-                    }
+            var resultMap = DBDriver.getDatabaseRows();
+            final GridPane databaseGrid = new GridPane();
+            databaseGrid.add(new Label("File Name"), 0, 0);
+            databaseGrid.add(new Label("Serial"), 1, 0);
+            databaseGrid.add(new Label("Parallel"), 2, 0);
+            databaseGrid.add(new Label("G1"), 3, 0);
+            databaseGrid.add(new Label("ZGC"), 4, 0);
+            databaseGrid.add(new Label("Shenandoah"), 5, 0);
+            databaseGrid.add(new Label("Date"), 6, 0);
+            for (Map.Entry<Integer, List<String>> entry : resultMap.entrySet()) {
+                int columnIdx = 0;
+                int rowIdx = entry.getKey();
+                for (String resultString : entry.getValue()) {
+                    databaseGrid.add(new Label(resultString), columnIdx++, rowIdx);
                 }
-                databaseGrid.setGridLinesVisible(true);
-                configureScrollPane(scrollPaneStatistics, databaseGrid);
             }
+            databaseGrid.setGridLinesVisible(true);
+            configureScrollPane(scrollPaneStatistics, databaseGrid);
         });
         configureStatisticsGrid(statisticsGrid, nothingToDisplay, databaseButton);
 
@@ -454,11 +452,11 @@ public class Main extends Application {
         suggestedGCs.setTextFill(Color.CORAL);
         suggestedGCs.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
         statisticsGrid.add(suggestedGCs, 0, 0);
-        for(int i = 1; i <= leaderboard.size(); i++) {
+        for (int i = 1; i <= leaderboard.size(); i++) {
             position = new Label(i + ")");
             position.setTextFill(Color.CORAL);
             position.setFont(Font.font("Times New Roman", FontWeight.BOLD, 25));
-            gcType = new Label(leaderboard.get(i-1).name());
+            gcType = new Label(leaderboard.get(i - 1).name());
             gcType.setTextFill(Color.CORAL);
             gcType.setFont(Font.font("Times New Roman", FontWeight.BOLD, 25));
             statisticsGrid.add(position, 0, i);
@@ -484,11 +482,11 @@ public class Main extends Application {
         statisticsGrid.add(fullPausesLabel, cIdx++, rIdx);
         statisticsGrid.add(minorPausesLabel, cIdx, rIdx);
 
-        for(String resultString : resultMetrics) {
+        for (String resultString : resultMetrics) {
             String[] splitByComma = resultString.split(",");
             int columnCount = 0;
             rIdx++;
-            for(String metric : splitByComma) {
+            for (String metric : splitByComma) {
                 statisticsGrid.add(new Label(metric), columnCount++, rIdx);
             }
         }
@@ -506,11 +504,10 @@ public class Main extends Application {
     }
 
     private void updateProgressBar(final ProgressBar progressBar, final Label progressMessage, boolean success) {
-        if(success) {
+        if (success) {
             progressBar.setStyle("-fx-accent: #40bf15");
             progressMessage.setText("Analysis finished successfully!");
-        }
-        else {
+        } else {
             progressBar.setStyle("-fx-accent: #ef0606");
             progressMessage.setText("Analysis failed! Inspect the log for more details.");
         }
