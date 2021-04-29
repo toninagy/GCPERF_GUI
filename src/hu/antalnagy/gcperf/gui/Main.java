@@ -562,7 +562,7 @@ class LauncherParams {
 
     public void setNumOfRuns(int numOfRuns) {
         if (numOfRuns < 1 || 100 < numOfRuns) {
-            illegalArgumentException = new IllegalArgumentException("Number of runs must be between 1 and 10");
+            illegalArgumentException = new IllegalArgumentException("Number of runs must be between 1 and 100");
             throw illegalArgumentException;
         }
         this.numOfRuns = numOfRuns;
@@ -573,8 +573,8 @@ class LauncherParams {
     }
 
     public void setInitHeapSize(int initHeapSize) {
-        if (initHeapSize < 1 || 1999 < initHeapSize) {
-            illegalArgumentException = new IllegalArgumentException("Initial heap size must be between 1MB and 1999MB");
+        if (initHeapSize < 1 || 2048 < initHeapSize) {
+            illegalArgumentException = new IllegalArgumentException("Initial heap size must be between 1MB and 2048MB");
             throw illegalArgumentException;
         }
         this.initHeapSize = initHeapSize;
@@ -585,8 +585,8 @@ class LauncherParams {
     }
 
     public void setMaxHeapSize(int maxHeapSize) {
-        if (maxHeapSize < 16 || 1999 < maxHeapSize) {
-            illegalArgumentException = new IllegalArgumentException("Maximum heap size must be between 16MB and 1999MB");
+        if (maxHeapSize < 16 || 8192 < maxHeapSize) {
+            illegalArgumentException = new IllegalArgumentException("Maximum heap size must be between 16MB and 8192MB");
             throw illegalArgumentException;
         }
         this.maxHeapSize = maxHeapSize;
@@ -597,8 +597,8 @@ class LauncherParams {
     }
 
     public void setInitHeapIncrementSize(int initHeapIncrementSize) {
-        if (initHeapIncrementSize < 1 || 999 < initHeapIncrementSize) {
-            illegalArgumentException = new IllegalArgumentException("Initial heap increment size must be between 1MB and 999MB");
+        if (initHeapIncrementSize < 1 || 1024 < initHeapIncrementSize) {
+            illegalArgumentException = new IllegalArgumentException("Initial heap increment size must be between 1MB and 1024MB");
             throw illegalArgumentException;
         }
         this.initHeapIncrementSize = initHeapIncrementSize;
@@ -609,8 +609,8 @@ class LauncherParams {
     }
 
     public void setMaxHeapIncrementSize(int maxHeapIncrementSize) {
-        if (maxHeapIncrementSize < 1 || 999 < maxHeapIncrementSize) {
-            illegalArgumentException = new IllegalArgumentException("Maximum heap increment size must be between 1MB and 999MB");
+        if (maxHeapIncrementSize < 1 || 1024 < maxHeapIncrementSize) {
+            illegalArgumentException = new IllegalArgumentException("Maximum heap increment size must be between 1MB and 1024MB");
             throw illegalArgumentException;
         }
         this.maxHeapIncrementSize = maxHeapIncrementSize;
