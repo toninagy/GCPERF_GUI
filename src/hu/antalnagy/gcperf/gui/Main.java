@@ -125,6 +125,7 @@ public class Main extends Application {
         final CheckBox fullPauses = new CheckBox("No. of Full Pauses");
 
         final CheckBox exportToCSV = new CheckBox("Export Results to CSV");
+        final CheckBox plotResults = new CheckBox("Plot Results");
 
         final FileChooser fileChooser = new FileChooser();
         final Button browseButton = new Button("Browse...");
@@ -275,6 +276,7 @@ public class Main extends Application {
         gridPane.add(minorPauses, 3, 9);
         gridPane.add(fullPauses, 3, 10);
         gridPane.add(exportToCSV, 2, 14);
+        gridPane.add(plotResults, 3, 14);
 
         gridPane.add(progressBar, 1, 13);
         gridPane.add(progressMessage, 2, 13);
@@ -295,6 +297,9 @@ public class Main extends Application {
         databaseButton.setOnAction(e -> {
             var resultMap = DBDriver.getDatabaseRows();
             final GridPane databaseGrid = new GridPane();
+            databaseGrid.setVgap(10);
+            databaseGrid.setHgap(25);
+            databaseGrid.setPadding(padding);
             databaseGrid.add(new Label("File Name"), 0, 0);
             databaseGrid.add(new Label("Serial"), 1, 0);
             databaseGrid.add(new Label("Parallel"), 2, 0);
@@ -309,7 +314,6 @@ public class Main extends Application {
                     databaseGrid.add(new Label(resultString), columnIdx++, rowIdx);
                 }
             }
-            databaseGrid.setGridLinesVisible(true);
             configureScrollPane(scrollPaneStatistics, databaseGrid);
         });
         configureStatisticsGrid(statisticsGrid, nothingToDisplay, databaseButton);
@@ -350,7 +354,7 @@ public class Main extends Application {
                                 gcPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(), launcherParams.getInitHeapSize(),
                                         launcherParams.getMaxHeapSize(), launcherParams.getInitHeapIncrementSize(),
                                         launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes(),
-                                        launcherParams.getMetrics().toArray(Analysis.Metrics[]::new), exportToCSV.isSelected());
+                                        launcherParams.getMetrics().toArray(Analysis.Metrics[]::new), exportToCSV.isSelected(), plotResults.isSelected());
                             } catch (IOException | PythonExecutionException | InterruptedException exception) {
                                 error.set(true);
                                 exception.printStackTrace();
@@ -376,7 +380,8 @@ public class Main extends Application {
                                         gcPerfDriver.getProgress().getProgressMessage());
                                 if (gcPerfDriver.getProgress().isDone()) {
                                     updateProgressBar(progressBar, progressMessage, true);
-                                    updateStatisticsTab(statisticsGrid, gcPerfDriver.getLeaderboard(), gcPerfDriver.getResultMetrics());
+                                    updateStatisticsTab(statisticsGrid, databaseButton,
+                                            gcPerfDriver.getLeaderboard(), gcPerfDriver.getResultMetrics());
                                     configureScrollPane(scrollPaneStatistics, statisticsGrid);
                                     updateLogTab(stackPane);
                                     cleanUp(running, runGcAnalysisButton);
@@ -443,7 +448,7 @@ public class Main extends Application {
         stackPane.getChildren().add(new TextArea(sb.toString()));
     }
 
-    private void updateStatisticsTab(final GridPane statisticsGrid,
+    private void updateStatisticsTab(final GridPane statisticsGrid, final Button databaseButton,
                                      List<GCType> leaderboard, List<String> resultMetrics) {
         statisticsGrid.getChildren().clear();
         Label position;
@@ -462,7 +467,8 @@ public class Main extends Application {
             statisticsGrid.add(position, 0, i);
             statisticsGrid.add(gcType, 1, i);
         }
-        int rIdx = leaderboard.size() + 1;
+        statisticsGrid.add(databaseButton, 0, leaderboard.size() + 1);
+        int rIdx = leaderboard.size() + 2;
         int cIdx = 0;
         Label gcTypeLabel = new Label("GC Type");
         Label runNoLabel = new Label("Run No.");
