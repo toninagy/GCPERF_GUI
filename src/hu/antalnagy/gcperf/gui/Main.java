@@ -54,13 +54,25 @@ public class Main extends Application {
             launcherParams.setMaxHeapIncrementSize(maxHeapIncrement);
             launcherParams.setGcTypes(gcTypes);
             launcherParams.setMetrics(metrics);
-            return true;
         } catch (IllegalArgumentException e) {
             return false;
         }
+        if(launcherParams.getInitHeapSize() > launcherParams.getMaxHeapSize()) {
+            launcherParams.setIllegalArgumentException(new IllegalArgumentException("Initial heap size cannot be bigger than " +
+                    "the initial maximum heap size"));
+            return false;
+        }
+        if(launcherParams.getInitHeapSize() + (launcherParams.getInitHeapIncrementSize() * launcherParams.getNumOfRuns())
+                > launcherParams.getMaxHeapSize() + (launcherParams.getMaxHeapIncrementSize() * launcherParams.getNumOfRuns())) {
+            launcherParams.setIllegalArgumentException(new IllegalArgumentException("At least one invalid initial heap size - " +
+                    "maximum heap size pairing detected with the selected increments.\n Please make sure that the initial heap size " +
+                    "will not exceed the maximum heap size in any runs"));
+            return false;
+        }
+        return true;
     }
 
-    private static void setNumField(TextField numField) {
+    private void setNumField(TextField numField) {
         numField.setMaxWidth(90);
         numField.textProperty().addListener((observable, oldValue, newValue) -> {
             if (!newValue.matches("\\d*")) {
@@ -69,7 +81,7 @@ public class Main extends Application {
         });
     }
 
-    private static void setDefaultCheckboxes(CheckBox checkbox, TextField numField, final int value) {
+    private void setDefaultCheckboxes(CheckBox checkbox, TextField numField, final int value) {
         checkbox.setOnAction(e -> {
             if (checkbox.isSelected()) {
                 numField.clear();
@@ -91,11 +103,10 @@ public class Main extends Application {
     private void decorateGUI(Stage primaryStage) {
         final Group root = new Group();
         final GridPane gridPane = new GridPane();
-        gridPane.setVgap(24);
-        gridPane.setHgap(10);
-        gridPane.setPadding(padding);
+        configureGridPane(gridPane);
 
         final Label title = new Label("GC Analyzer");
+        configureTitle(title);
         final Label browseLabel = new Label("Class File or Jar File: ");
         final Label selectedFileLabel = new Label("No File Selected");
         final Label numberOfRunsLabel = new Label("Number of Runs: ");
@@ -130,12 +141,7 @@ public class Main extends Application {
         final FileChooser fileChooser = new FileChooser();
         final Button browseButton = new Button("Browse...");
         browseButton.setMinWidth(150);
-        browseButton.setOnAction(e -> {
-            appContainer = fileChooser.showOpenDialog(primaryStage);
-            if (appContainer != null) {
-                selectedFileLabel.setText(appContainer.getName());
-            }
-        });
+        browseButtonSetOnAction(primaryStage, selectedFileLabel, fileChooser, browseButton);
 
         ProgressBar progressBar = new ProgressBar();
         progressBar.setPrefSize(180, 25);
@@ -159,6 +165,188 @@ public class Main extends Application {
 
         final Button runGcAnalysisButton = new Button("Run GC Analysis");
         final Button addButton = new Button("Set/Refresh Parameters");
+        addButtonSetOnAction(progressMessage, serial, parallel, g1, zgc, shenandoah, bestGCRuntime, avgGCRuntime,
+                throughput, latency, minorPauses, fullPauses, progressBar, numberOfRuns, initHeap, maxHeap,
+                initHeapIncrement, maxHeapIncrement, addButton);
+
+        decorateGridPane(gridPane, title, browseLabel, selectedFileLabel, numberOfRunsLabel, initHeapLabel, initMaxHeapLabel,
+                initHeapIncrementLabel, maxHeapIncrementLabel, gcsLabel, metricsLabel, progressMessage, defaultInitHeapSize,
+                defaultInitMaxHeapSize, defaultInitHeapIncrementSize, defaultMaxHeapIncrementSize, serial, parallel, g1,
+                zgc, shenandoah, bestGCRuntime, avgGCRuntime, throughput, latency, minorPauses, fullPauses, exportToCSV,
+                plotResults, browseButton, progressBar, numberOfRuns, initHeap, maxHeap, initHeapIncrement, maxHeapIncrement,
+                runGcAnalysisButton, addButton);
+
+        TabPane tabPane = new TabPane();
+        tabPane.setTabMinWidth(319);
+        Tab mainTab = new Tab("GC Performance Analyzer");
+        configureTab(tabPane, mainTab, gridPane);
+
+        Tab statisticsTab = new Tab("Results and Statistics");
+        final ScrollPane scrollPaneStatistics = new ScrollPane();
+        final Label nothingToDisplay = new Label("No results available yet");
+        nothingToDisplay.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+        nothingToDisplay.setTextFill(Color.CORAL);
+
+        final GridPane statisticsGrid = new GridPane();
+        final Button databaseButton = new Button("Query older results");
+        databaseButtonSetOnAction(scrollPaneStatistics, databaseButton);
+        configureStatisticsGrid(statisticsGrid, nothingToDisplay, databaseButton);
+
+        configureScrollPane(scrollPaneStatistics, statisticsGrid);
+        configureTab(tabPane, statisticsTab, scrollPaneStatistics);
+
+        Tab logTab = new Tab("Log Output");
+        final ScrollPane scrollPaneLog = new ScrollPane();
+        final Label noLogsToDisplayLabel = new Label("No logs available yet");
+        noLogsToDisplayLabel.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+        final StackPane stackPane = new StackPane();
+        stackPane.getChildren().add(noLogsToDisplayLabel);
+        stackPane.setMaxHeight(750);
+
+        configureScrollPane(scrollPaneLog, stackPane);
+        configureTab(tabPane, logTab, scrollPaneLog);
+
+        root.getChildren().add(tabPane);
+        primaryStage.setTitle("Java GC Performance Analyzer");
+        primaryStage.setScene(new Scene(root, 1024, 768));
+        primaryStage.sizeToScene();
+        primaryStage.show();
+
+        Service<Void> analysis = new Service<>() {
+            @Override
+            protected Task<Void> createTask() {
+                return new Task<>() {
+
+                    @Override
+                    protected Void call() {
+                        if (!correctParams) {
+                            configureAlert();
+                        } else {
+                            try {
+                                gcPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(), launcherParams.getInitHeapSize(),
+                                        launcherParams.getMaxHeapSize(), launcherParams.getInitHeapIncrementSize(),
+                                        launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes(),
+                                        launcherParams.getMetrics().toArray(Analysis.Metrics[]::new), exportToCSV.isSelected(), plotResults.isSelected());
+                            } catch (IOException | PythonExecutionException | InterruptedException exception) {
+                                error.set(true);
+                                exception.printStackTrace();
+                            }
+                        }
+                        return null;
+                    }
+
+                    private void configureAlert() {
+                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                        alert.setTitle("Invalid Parameters");
+                        alert.setContentText("Please set all parameters correctly");
+                        alert.showAndWait();
+                    }
+                };
+            }
+        };
+        Service<Void> progressUpdate = new Service<>() {
+            @Override
+            protected Task<Void> createTask() {
+                return new Task<>() {
+                    @Override
+                    protected Void call() {
+                        sleep(200);
+                        AtomicBoolean running = new AtomicBoolean(true);
+                        while (running.get()) {
+                            sleep(50);
+                            Platform.runLater(() -> {
+                                updateProgressBar(progressBar, progressMessage, gcPerfDriver.getProgress().getProgressLevel(),
+                                        gcPerfDriver.getProgress().getProgressMessage());
+                                if (gcPerfDriver.getProgress().isDone()) {
+                                    updateProgressBar(progressBar, progressMessage, true);
+                                    updateStatisticsTab(statisticsGrid, databaseButton,
+                                            gcPerfDriver.getLeaderboard(), gcPerfDriver.getResultMetrics());
+                                    configureScrollPane(scrollPaneStatistics, statisticsGrid);
+                                    updateLogTab(stackPane);
+                                    cleanUp(running, runGcAnalysisButton);
+                                } else if (gcPerfDriver.getProgress().isFailed() || error.get()) {
+                                    updateProgressBar(progressBar, progressMessage, false);
+                                    updateLogTab(stackPane);
+                                    cleanUp(running, runGcAnalysisButton);
+                                }
+                            });
+                        }
+                        return null;
+                    }
+                };
+            }
+        };
+
+        runGcAnalysisButtonSetOnAction(progressBar, runGcAnalysisButton, analysis, progressUpdate);
+
+        primaryStage.setOnCloseRequest(t -> {
+            Platform.exit();
+            System.exit(0);
+        });
+    }
+
+    private void configureGridPane(GridPane gridPane) {
+        gridPane.setVgap(24);
+        gridPane.setHgap(10);
+        gridPane.setPadding(padding);
+    }
+
+    private void configureTitle(Label title) {
+        title.setAlignment(Pos.TOP_LEFT);
+        title.setTextFill(Color.GREEN);
+        title.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+    }
+
+    private void browseButtonSetOnAction(Stage primaryStage, Label selectedFileLabel, FileChooser fileChooser, Button browseButton) {
+        browseButton.setOnAction(e -> {
+            appContainer = fileChooser.showOpenDialog(primaryStage);
+            if (appContainer != null) {
+                selectedFileLabel.setText(appContainer.getName());
+            }
+        });
+    }
+
+    private void runGcAnalysisButtonSetOnAction(ProgressBar progressBar, Button runGcAnalysisButton, Service<Void> analysis,
+                                                Service<Void> progressUpdate) {
+        runGcAnalysisButton.setOnAction(e -> {
+            runGcAnalysisButton.setDisable(true);
+            error.set(false);
+            resetProgressBar(progressBar);
+            analysis.restart();
+            progressUpdate.restart();
+        });
+    }
+
+    private void databaseButtonSetOnAction(ScrollPane scrollPaneStatistics, Button databaseButton) {
+        databaseButton.setOnAction(e -> {
+            var resultMap = DBDriver.getDatabaseRows();
+            final GridPane databaseGrid = new GridPane();
+            databaseGrid.setVgap(10);
+            databaseGrid.setHgap(25);
+            databaseGrid.setPadding(padding);
+            databaseGrid.add(new Label("File Name"), 0, 0);
+            databaseGrid.add(new Label("Serial"), 1, 0);
+            databaseGrid.add(new Label("Parallel"), 2, 0);
+            databaseGrid.add(new Label("G1"), 3, 0);
+            databaseGrid.add(new Label("ZGC"), 4, 0);
+            databaseGrid.add(new Label("Shenandoah"), 5, 0);
+            databaseGrid.add(new Label("Date"), 6, 0);
+            for (Map.Entry<Integer, List<String>> entry : resultMap.entrySet()) {
+                int columnIdx = 0;
+                int rowIdx = entry.getKey();
+                for (String resultString : entry.getValue()) {
+                    databaseGrid.add(new Label(resultString), columnIdx++, rowIdx);
+                }
+            }
+            configureScrollPane(scrollPaneStatistics, databaseGrid);
+        });
+    }
+
+    private void addButtonSetOnAction(Label progressMessage, CheckBox serial, CheckBox parallel, CheckBox g1, CheckBox zgc,
+                           CheckBox shenandoah, CheckBox bestGCRuntime, CheckBox avgGCRuntime, CheckBox throughput,
+                           CheckBox latency, CheckBox minorPauses, CheckBox fullPauses, ProgressBar progressBar,
+                           TextField numberOfRuns, TextField initHeap, TextField maxHeap, TextField initHeapIncrement,
+                           TextField maxHeapIncrement, Button addButton) {
         addButton.setOnAction(e -> {
             if ((numberOfRuns.getText() == null || numberOfRuns.getText().isEmpty())
                     || (initHeap.getText() == null || initHeap.getText().isEmpty())
@@ -238,10 +426,17 @@ public class Main extends Application {
                 alert.showAndWait();
             }
         });
+    }
 
-        title.setAlignment(Pos.TOP_LEFT);
-        title.setTextFill(Color.GREEN);
-        title.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
+    private void decorateGridPane(GridPane gridPane, Label title, Label browseLabel, Label selectedFileLabel, Label numberOfRunsLabel,
+                           Label initHeapLabel, Label initMaxHeapLabel, Label initHeapIncrementLabel, Label maxHeapIncrementLabel,
+                           Label gcsLabel, Label metricsLabel, Label progressMessage, CheckBox defaultInitHeapSize, CheckBox defaultInitMaxHeapSize,
+                           CheckBox defaultInitHeapIncrementSize, CheckBox defaultMaxHeapIncrementSize, CheckBox serial,
+                           CheckBox parallel, CheckBox g1, CheckBox zgc, CheckBox shenandoah, CheckBox bestGCRuntime, CheckBox avgGCRuntime,
+                           CheckBox throughput, CheckBox latency, CheckBox minorPauses, CheckBox fullPauses, CheckBox exportToCSV,
+                           CheckBox plotResults, Button browseButton, ProgressBar progressBar, TextField numberOfRuns, TextField initHeap,
+                           TextField maxHeap, TextField initHeapIncrement, TextField maxHeapIncrement, Button runGcAnalysisButton, Button addButton) {
+
         gridPane.add(title, 0, 0);
         gridPane.add(browseLabel, 0, 1);
         gridPane.add(selectedFileLabel, 2, 1);
@@ -277,139 +472,8 @@ public class Main extends Application {
         gridPane.add(fullPauses, 3, 10);
         gridPane.add(exportToCSV, 2, 14);
         gridPane.add(plotResults, 3, 14);
-
         gridPane.add(progressBar, 1, 13);
         gridPane.add(progressMessage, 2, 13);
-
-        TabPane tabPane = new TabPane();
-        tabPane.setTabMinWidth(319);
-        Tab mainTab = new Tab("GC Performance Analyzer");
-        configureTab(tabPane, mainTab, gridPane);
-
-        Tab statisticsTab = new Tab("Results and Statistics");
-        final ScrollPane scrollPaneStatistics = new ScrollPane();
-        final Label nothingToDisplay = new Label("No results available yet");
-        nothingToDisplay.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
-        nothingToDisplay.setTextFill(Color.CORAL);
-
-        final GridPane statisticsGrid = new GridPane();
-        final Button databaseButton = new Button("Query older results");
-        databaseButton.setOnAction(e -> {
-            var resultMap = DBDriver.getDatabaseRows();
-            final GridPane databaseGrid = new GridPane();
-            databaseGrid.setVgap(10);
-            databaseGrid.setHgap(25);
-            databaseGrid.setPadding(padding);
-            databaseGrid.add(new Label("File Name"), 0, 0);
-            databaseGrid.add(new Label("Serial"), 1, 0);
-            databaseGrid.add(new Label("Parallel"), 2, 0);
-            databaseGrid.add(new Label("G1"), 3, 0);
-            databaseGrid.add(new Label("ZGC"), 4, 0);
-            databaseGrid.add(new Label("Shenandoah"), 5, 0);
-            databaseGrid.add(new Label("Date"), 6, 0);
-            for (Map.Entry<Integer, List<String>> entry : resultMap.entrySet()) {
-                int columnIdx = 0;
-                int rowIdx = entry.getKey();
-                for (String resultString : entry.getValue()) {
-                    databaseGrid.add(new Label(resultString), columnIdx++, rowIdx);
-                }
-            }
-            configureScrollPane(scrollPaneStatistics, databaseGrid);
-        });
-        configureStatisticsGrid(statisticsGrid, nothingToDisplay, databaseButton);
-
-        configureScrollPane(scrollPaneStatistics, statisticsGrid);
-        configureTab(tabPane, statisticsTab, scrollPaneStatistics);
-
-        Tab logTab = new Tab("Log Output");
-        final ScrollPane scrollPaneLog = new ScrollPane();
-        final Label noLogsToDisplayLabel = new Label("No logs available yet");
-        noLogsToDisplayLabel.setFont(Font.font("Times New Roman", FontWeight.BOLD, 30));
-        final StackPane stackPane = new StackPane();
-        stackPane.getChildren().add(noLogsToDisplayLabel);
-        stackPane.setMaxHeight(750);
-
-        configureScrollPane(scrollPaneLog, stackPane);
-        configureTab(tabPane, logTab, scrollPaneLog);
-
-        root.getChildren().add(tabPane);
-        primaryStage.setTitle("Java GC Performance Analyzer");
-        primaryStage.setScene(new Scene(root, 1024, 768));
-        primaryStage.sizeToScene();
-        primaryStage.show();
-
-        Service<Void> analysis = new Service<>() {
-            @Override
-            protected Task<Void> createTask() {
-                return new Task<>() {
-                    @Override
-                    protected Void call() {
-                        if (!correctParams) {
-                            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-                            alert.setTitle("Invalid Parameters");
-                            alert.setContentText("Please set all parameters correctly");
-                            alert.showAndWait();
-                        } else {
-                            try {
-                                gcPerfDriver.launch(launcherParams.getFile(), launcherParams.getNumOfRuns(), launcherParams.getInitHeapSize(),
-                                        launcherParams.getMaxHeapSize(), launcherParams.getInitHeapIncrementSize(),
-                                        launcherParams.getMaxHeapIncrementSize(), launcherParams.getGcTypes(),
-                                        launcherParams.getMetrics().toArray(Analysis.Metrics[]::new), exportToCSV.isSelected(), plotResults.isSelected());
-                            } catch (IOException | PythonExecutionException | InterruptedException exception) {
-                                error.set(true);
-                                exception.printStackTrace();
-                            }
-                        }
-                        return null;
-                    }
-                };
-            }
-        };
-        Service<Void> progressUpdate = new Service<>() {
-            @Override
-            protected Task<Void> createTask() {
-                return new Task<>() {
-                    @Override
-                    protected Void call() {
-                        sleep(200);
-                        AtomicBoolean running = new AtomicBoolean(true);
-                        while (running.get()) {
-                            sleep(50);
-                            Platform.runLater(() -> {
-                                updateProgressBar(progressBar, progressMessage, gcPerfDriver.getProgress().getProgressLevel(),
-                                        gcPerfDriver.getProgress().getProgressMessage());
-                                if (gcPerfDriver.getProgress().isDone()) {
-                                    updateProgressBar(progressBar, progressMessage, true);
-                                    updateStatisticsTab(statisticsGrid, databaseButton,
-                                            gcPerfDriver.getLeaderboard(), gcPerfDriver.getResultMetrics());
-                                    configureScrollPane(scrollPaneStatistics, statisticsGrid);
-                                    updateLogTab(stackPane);
-                                    cleanUp(running, runGcAnalysisButton);
-                                } else if (gcPerfDriver.getProgress().isFailed() || error.get()) {
-                                    updateProgressBar(progressBar, progressMessage, false);
-                                    updateLogTab(stackPane);
-                                    cleanUp(running, runGcAnalysisButton);
-                                }
-                            });
-                        }
-                        return null;
-                    }
-                };
-            }
-        };
-
-        runGcAnalysisButton.setOnAction(e -> {
-            runGcAnalysisButton.setDisable(true);
-            error.set(false);
-            resetProgressBar(progressBar);
-            analysis.restart();
-            progressUpdate.restart();
-        });
-
-        primaryStage.setOnCloseRequest(t -> {
-            Platform.exit();
-            System.exit(0);
-        });
     }
 
     private void configureStatisticsGrid(GridPane statisticsGrid, Label nothingToDisplay, Button databaseButton) {
@@ -634,5 +698,9 @@ class LauncherParams {
 
     public IllegalArgumentException getIllegalArgumentException() {
         return illegalArgumentException;
+    }
+
+    public void setIllegalArgumentException(IllegalArgumentException illegalArgumentException) {
+        this.illegalArgumentException = illegalArgumentException;
     }
 }
