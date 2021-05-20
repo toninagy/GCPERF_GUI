@@ -31,7 +31,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class Main extends Application {
+public class View extends Application {
     private static final LauncherParams launcherParams = new LauncherParams();
     private static final GCPerfDriver gcPerfDriver = new GCPerfDriver();
     private static final AtomicBoolean error = new AtomicBoolean(false);
