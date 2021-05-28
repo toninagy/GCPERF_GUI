@@ -309,11 +309,13 @@ public class View extends Application {
     private void runGcAnalysisButtonSetOnAction(ProgressBar progressBar, Button runGcAnalysisButton, Service<Void> analysis,
                                                 Service<Void> progressUpdate) {
         runGcAnalysisButton.setOnAction(e -> {
-            runGcAnalysisButton.setDisable(true);
-            error.set(false);
-            resetProgressBar(progressBar);
-            analysis.restart();
-            progressUpdate.restart();
+            if(correctParams) {
+                runGcAnalysisButton.setDisable(true);
+                error.set(false);
+                resetProgressBar(progressBar);
+                analysis.restart();
+                progressUpdate.restart();
+            }
         });
     }
 
