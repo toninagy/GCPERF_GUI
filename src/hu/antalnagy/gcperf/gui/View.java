@@ -255,20 +255,20 @@ public class View extends Application {
                         while (running.get()) {
                             sleep(50);
                             Platform.runLater(() -> {
-                                updateProgressBar(progressBar, progressMessage, gcPerfDriver.getProgress().getProgressLevel(),
-                                        gcPerfDriver.getProgress().getProgressMessage());
-                                if (gcPerfDriver.getProgress().isDone()) {
-                                    updateProgressBar(progressBar, progressMessage, true);
-                                    updateStatisticsTab(statisticsGrid, databaseButton,
-                                            gcPerfDriver.getLeaderboard(), gcPerfDriver.getResultMetrics());
-                                    configureScrollPane(scrollPaneStatistics, statisticsGrid);
-                                    updateLogTab(stackPane);
-                                    cleanUp(running, runGcAnalysisButton);
-                                } else if (gcPerfDriver.getProgress().isFailed() || error.get()) {
-                                    updateProgressBar(progressBar, progressMessage, false);
-                                    updateLogTab(stackPane);
-                                    cleanUp(running, runGcAnalysisButton);
-                                }
+                                    updateProgressBar(progressBar, progressMessage, gcPerfDriver.getProgress().getProgressLevel(),
+                                            gcPerfDriver.getProgress().getProgressMessage());
+                                    if (gcPerfDriver.getProgress().isDone()) {
+                                        updateProgressBar(progressBar, progressMessage, true);
+                                        updateStatisticsTab(statisticsGrid, databaseButton,
+                                                gcPerfDriver.getLeaderboard(), gcPerfDriver.getResultMetrics());
+                                        configureScrollPane(scrollPaneStatistics, statisticsGrid);
+                                        updateLogTab(stackPane);
+                                        cleanUp(running, runGcAnalysisButton);
+                                    } else if (gcPerfDriver.getProgress().isFailed() || error.get()) {
+                                        updateProgressBar(progressBar, progressMessage, false);
+                                        updateLogTab(stackPane);
+                                        cleanUp(running, runGcAnalysisButton);
+                                    }
                             });
                         }
                         return null;

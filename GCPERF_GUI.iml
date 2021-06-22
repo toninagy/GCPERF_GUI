@@ -8,8 +8,8 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="JavaFX-12" level="application" />
-    <orderEntry type="library" name="gcperf-driver" level="project" />
     <orderEntry type="library" name="com.github.sh0nk:matplotlib4j:0.3.0" level="project" />
     <orderEntry type="library" name="mysql-connector-java-8.0.24" level="project" />
+    <orderEntry type="library" name="gcperf-driver" level="project" />
   </component>
 </module>
